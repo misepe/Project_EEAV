@@ -20,6 +20,18 @@ struct CustomRotarySlider : juce::Slider
 	
 };
 
+struct CustomComboBox : juce::ComboBox
+{
+    CustomComboBox()
+    {
+        // Aquí puedes añadir las opciones que necesites
+        addItem("Peak", 1);
+        addItem("Notch", 2);
+        addItem("BandPass", 3);
+        // ...añade más según tus necesidades
+    }
+};
+
 struct ResponseCurveComponent : juce::Component,
     juce::AudioProcessorParameter::Listener,
     juce::Timer
@@ -71,16 +83,21 @@ private:
 
     ResponseCurveComponent responseCurveComponent;
 
+	CustomComboBox chooseFilterCombo;
+
 	using APVTS = juce::AudioProcessorValueTreeState;
 	using Attachment = APVTS::SliderAttachment;
+	using ComboBoxAttachment = APVTS::ComboBoxAttachment;
 
-	Attachment peakFreqSliderAttachment, 
-               peakGainSliderAttachment, 
-               peakQualitySliderAttachment, 
-               lowCutFreqSliderAttachment, 
-               highCutFreqSliderAttachment, 
-               lowCutSlopeSliderAttachment, 
-               highCutSlopeSliderAttachment;
+    Attachment peakFreqSliderAttachment,
+        peakGainSliderAttachment,
+        peakQualitySliderAttachment,
+        lowCutFreqSliderAttachment,
+        highCutFreqSliderAttachment,
+        lowCutSlopeSliderAttachment,
+        highCutSlopeSliderAttachment;
+
+	ComboBoxAttachment chooseFilterComboAttachament;
 
     std::vector<juce::Component*> getComps();
 

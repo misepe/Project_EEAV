@@ -217,6 +217,7 @@ ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& apvts)
 
     settings.lowCutFreq = apvts.getRawParameterValue("LowCut Freq")->load();
     settings.highCutFreq = apvts.getRawParameterValue("HighCut Freq")->load();
+	settings.filterName = static_cast<FilterType> (apvts.getRawParameterValue("Choose filter")->load());
     settings.peakFreq = apvts.getRawParameterValue("Peak Freq")->load();
     settings.peakGainInDecibels = apvts.getRawParameterValue("Peak Gain")->load();
     settings.peakQuality = apvts.getRawParameterValue("Peak Quality")->load();
@@ -234,12 +235,60 @@ Coefficients makePeakFilter(const ChainSettings& chainSettings, double sampleRat
 		juce::Decibels::decibelsToGain(chainSettings.peakGainInDecibels));
 }
 
+Coefficients makeNotchFilter(const ChainSettings& chainSettings, double sampleRate)
+{
+    return juce::dsp::IIR::Coefficients<float>::makeNotch(sampleRate,
+        chainSettings.peakFreq,
+        chainSettings.peakQuality);
+}
+
+Coefficients makeBandPassFilter(const ChainSettings& chainSettings, double sampleRate)
+{
+    return juce::dsp::IIR::Coefficients<float>::makeBandPass(sampleRate,
+        chainSettings.peakFreq,
+        chainSettings.peakQuality);
+}
+
+Coefficients makeChooseFilter(const ChainSettings& chainSettings, double sampleRate)
+{
+    switch (chainSettings.filterName)
+    {
+    case PeakFilter:
+        return makePeakFilter(chainSettings, sampleRate);
+    case NotchFilter:
+        return makeNotchFilter(chainSettings, sampleRate);
+    case BandPassFilter:
+        return makeBandPassFilter(chainSettings, sampleRate);
+    default:
+        jassertfalse; // Invalid filter type
+        return {};
+    }
+}
+
 void Project_EEAVAudioProcessor::updatePeakFilter(const ChainSettings &chainSettings)
 {
 	auto peakCoefficients = makePeakFilter(chainSettings, getSampleRate());
 
-	updateCoefficients(leftChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
-    updateCoefficients(rightChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
+	updateCoefficients(leftChain.get<ChainPositions::Choose>().coefficients, peakCoefficients);
+    updateCoefficients(rightChain.get<ChainPositions::Choose>().coefficients, peakCoefficients);
+}
+
+void Project_EEAVAudioProcessor::updateNotchFilter(const ChainSettings& chainSettings)
+{
+    auto nocthCoefficients = makeNotchFilter(chainSettings, getSampleRate());
+
+    updateCoefficients(leftChain.get<ChainPositions::Choose>().coefficients, nocthCoefficients);
+    updateCoefficients(rightChain.get<ChainPositions::Choose>().coefficients, nocthCoefficients);
+
+}
+
+void Project_EEAVAudioProcessor::updateBandPassFilter(const ChainSettings& chainSettings)
+{
+
+    auto bandPassCoefficients = makeBandPassFilter(chainSettings, getSampleRate());
+
+    updateCoefficients(leftChain.get<ChainPositions::Choose>().coefficients, bandPassCoefficients);
+    updateCoefficients(rightChain.get<ChainPositions::Choose>().coefficients, bandPassCoefficients);
 }
 
 void updateCoefficients(Coefficients & old, const Coefficients & replacements)
@@ -269,12 +318,38 @@ void Project_EEAVAudioProcessor::updateHighCutFilters(const ChainSettings& chain
     updateCutFilter(rightHighCut, highCutCoefficients, static_cast<Slope>(chainSettings.highCutSlope));
 }
 
+void Project_EEAVAudioProcessor::updateChooseFilter(const ChainSettings& chainSettings) 
+{
+
+    switch (chainSettings.filterName)
+    {
+    case PeakFilter:
+    {
+		DBG("Peak Filter Selected");
+        updatePeakFilter(chainSettings);
+        break;
+    }
+    case NotchFilter:
+    {
+		DBG("Notch Filter Selected");
+        updateNotchFilter(chainSettings);
+        break;
+    }
+    case BandPassFilter:
+    {
+        DBG("Band Pass Filter Selected");
+        updateBandPassFilter(chainSettings);
+        break;
+    }
+    }
+}
+
 void Project_EEAVAudioProcessor::updateFilters() 
 {
 	auto chainSettings = getChainSettings(apvts);
 
     updateLowCutFilters(chainSettings);
-	updatePeakFilter(chainSettings);
+	updateChooseFilter(chainSettings);
 	updateHighCutFilters(chainSettings);
 }
 
@@ -296,6 +371,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout Project_EEAVAudioProcessor::
                                                            "HighCut Freq",
                                                            juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 0.25f),
                                                            20000.f));
+    juce::StringArray filterNames;
+    filterNames.add("Peak");
+    filterNames.add("Notch");
+    filterNames.add("BandPass");
+
+    layout.add(std::make_unique<juce::AudioParameterChoice>("Choose filter", "Choose filter", filterNames, 0));
 
     layout.add(std::make_unique<juce::AudioParameterFloat>("Peak Freq",
                                                             "Peak Freq",
@@ -311,7 +392,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout Project_EEAVAudioProcessor::
                                                             "Peak Quality",
                                                             juce::NormalisableRange<float>(0.1f, 10.f, 0.05f, 1.f),
                                                             1.f));
-
+  
     juce::StringArray stringArray;
     for (int i = 0; i < 4; ++i)
     {

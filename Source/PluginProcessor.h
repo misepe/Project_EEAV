@@ -17,9 +17,17 @@ enum Slope {
 	Slope_48
 };
 
+enum FilterType
+{
+	PeakFilter,
+	NotchFilter,
+	BandPassFilter
+};
+
 struct ChainSettings
 {
 	float peakFreq{ 0 }, peakGainInDecibels{ 0 }, peakQuality{ 1.f };
+	int filterName{ FilterType::PeakFilter };
 	float lowCutFreq{ 0 }, highCutFreq{ 0 };
 	int lowCutSlope{ Slope::Slope_12 }, highCutSlope{ Slope::Slope_12 };
 };
@@ -35,14 +43,18 @@ using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
 enum ChainPositions
 {
     LowCut,
-    Peak,
-    HighCut
+    Choose,
+	HighCut
 };
 
 using Coefficients = Filter::CoefficientsPtr;
 void updateCoefficients(Coefficients& old, const Coefficients& replacement);
 
 Coefficients makePeakFilter(const ChainSettings& chainSettings, double sampleRate);
+Coefficients makeNotchFilter(const ChainSettings& chainSettings, double sampleRate);
+Coefficients makeBandPassFilter(const ChainSettings& chainSettings, double sampleRate);
+
+Coefficients makeChooseFilter(const ChainSettings& chainSettings, double sampleRate);
 
 template<int Index, typename ChainType, typename CoefficientType>
 void update(ChainType& chain, const CoefficientType& coefficients)
@@ -148,9 +160,13 @@ private:
 
 	
     void updatePeakFilter(const ChainSettings &chainSettings);
+    void updateNotchFilter(const ChainSettings& chainSettings);
+    void updateBandPassFilter(const ChainSettings& chainSettings);
 
 	void updateLowCutFilters(const ChainSettings& chainSettings);
     void updateHighCutFilters(const ChainSettings& chainSettings);
+
+    void updateChooseFilter(const ChainSettings& chainSettings);
 
     void updateFilters();
     //==============================================================================

@@ -40,8 +40,8 @@ void ResponseCurveComponent::timerCallback()
     {
         //update the monochain
         auto chainSettings = getChainSettings(audioProcessor.apvts);
-        auto peakCoefficients = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
-        updateCoefficients(monoChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
+        auto peakCoefficients = makeChooseFilter(chainSettings, audioProcessor.getSampleRate());
+        updateCoefficients(monoChain.get<ChainPositions::Choose>().coefficients, peakCoefficients);
 
         auto lowCutCoefficients = makeLowCutFilter(chainSettings, audioProcessor.getSampleRate());
         auto highCutCoefficients = makeHighCutFilter(chainSettings, audioProcessor.getSampleRate());
@@ -63,7 +63,7 @@ void ResponseCurveComponent::paint(juce::Graphics& g)
     auto w = responseArea.getWidth();
 
     auto& lowcut = monoChain.get<ChainPositions::LowCut>();
-    auto& peak = monoChain.get<ChainPositions::Peak>();
+    auto& choose = monoChain.get<ChainPositions::Choose>();
     auto& highcut = monoChain.get<ChainPositions::HighCut>();
 
     auto sampleRate = audioProcessor.getSampleRate();
@@ -77,8 +77,8 @@ void ResponseCurveComponent::paint(juce::Graphics& g)
         double mag = 1.f;
         auto freq = mapToLog10(double(i) / double(w), 20.0, 20000.0);
 
-        if (!monoChain.isBypassed<ChainPositions::Peak>())
-            mag *= peak.coefficients->getMagnitudeForFrequency(freq, sampleRate);
+        if (!monoChain.isBypassed<ChainPositions::Choose>())
+            mag *= choose.coefficients->getMagnitudeForFrequency(freq, sampleRate);
 
         if (!lowcut.isBypassed<0>())
             mag *= lowcut.get<0>().coefficients->getMagnitudeForFrequency(freq, sampleRate);
@@ -133,7 +133,8 @@ Project_EEAVAudioProcessorEditor::Project_EEAVAudioProcessorEditor (Project_EEAV
 	lowCutFreqSliderAttachment(audioProcessor.apvts, "LowCut Freq", lowCutFreqSlider),
 	highCutFreqSliderAttachment(audioProcessor.apvts, "HighCut Freq", highCutFreqSlider),
 	lowCutSlopeSliderAttachment(audioProcessor.apvts, "LowCut Slope", lowCutSlopeSlider),
-	highCutSlopeSliderAttachment(audioProcessor.apvts, "HighCut Slope", highCutSlopeSlider)
+	highCutSlopeSliderAttachment(audioProcessor.apvts, "HighCut Slope", highCutSlopeSlider),
+    chooseFilterComboAttachament(audioProcessor.apvts, "Choose filter", chooseFilterCombo)
 {
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
@@ -181,6 +182,7 @@ void Project_EEAVAudioProcessorEditor::resized()
     highCutFreqSlider.setBounds(highCutArea.removeFromTop(highCutArea.getHeight() * 0.5));
 	highCutSlopeSlider.setBounds(highCutArea);
 
+	chooseFilterCombo.setBounds(bounds.removeFromTop(bounds.getHeight() * 0.1));
 	peakFreqSlider.setBounds(bounds.removeFromTop(bounds.getHeight() * 0.33));
     peakGainSlider.setBounds(bounds.removeFromTop(bounds.getHeight() * 0.5));
     peakQualitySlider.setBounds(bounds);
@@ -196,5 +198,6 @@ std::vector<juce::Component*> Project_EEAVAudioProcessorEditor::getComps()
         &highCutFreqSlider,
         &lowCutSlopeSlider,
         &highCutSlopeSlider,
-        &responseCurveComponent};
+        &responseCurveComponent,
+        &chooseFilterCombo};
 }
